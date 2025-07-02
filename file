@@ -1,1 +1,631 @@
-hello
+//task1
+
+function getEmployeeProfiles(employees) {
+  return employees.map(emp => ({
+    fullName: `${emp.firstName} ${emp.lastName}`,
+    department: emp.department,
+    skillsText: emp.skills.join(", ")
+  }));
+}
+
+function getHighPerformers(employees, salaryThreshold, minProjects) {
+  return employees
+    .filter(emp => emp.salary >= salaryThreshold && emp.projectsCompleted >= minProjects)
+    .map(emp => `${emp.firstName} ${emp.lastName}`);
+}
+
+function getDepartmentAnalytics(employees) {
+  const analytics = {};
+
+  employees.forEach(emp => {
+    const dept = emp.department;
+    if (!analytics[dept]) {
+      analytics[dept] = {
+        employeeCount: 0,
+        totalSalary: 0,
+        totalProjects: 0
+      };
+    }
+    analytics[dept].employeeCount += 1;
+    analytics[dept].totalSalary += emp.salary;
+    analytics[dept].totalProjects += emp.projectsCompleted;
+  });
+
+  for (const dept in analytics) {
+    analytics[dept].averageSalary = Math.round(analytics[dept].totalSalary / analytics[dept].employeeCount);
+    delete analytics[dept].totalSalary;
+  }
+
+  return analytics;
+}
+
+function getSkillExperts(employees, requiredSkills) {
+  return employees
+    .filter(emp => requiredSkills.every(skill => emp.skills.includes(skill)))
+    .map(emp => ({
+      name: `${emp.firstName} ${emp.lastName}`,
+      matchingSkills: requiredSkills.length
+    }));
+}
+
+function getSkillsReport(employees, targetSkills) {
+  const skills = targetSkills.split(",").map(s => s.trim());
+  const skillCoverage = {};
+  const expertsPerSkill = {};
+
+  skills.forEach(skill => {
+    skillCoverage[skill] = 0;
+    expertsPerSkill[skill] = [];
+  });
+
+  employees.forEach(emp => {
+    skills.forEach(skill => {
+      if (emp.skills.includes(skill)) {
+        skillCoverage[skill]++;
+        expertsPerSkill[skill].push(`${emp.firstName} ${emp.lastName}`);
+      }
+    });
+  });
+
+  for (const skill in expertsPerSkill) {
+    expertsPerSkill[skill] = expertsPerSkill[skill].join(", ");
+  }
+
+  return {
+    totalEmployees: employees.length,
+    skillCoverage,
+    expertsPerSkill
+  };
+}
+
+
+//task 2 (couldnt identify anything to change, what you gave me is already a full code answering all questions)
+
+
+<!DOCTYPE html>
+<html lang="ka">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Star Wars Starships Gallery</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="container">
+    <h1>🚀 Star Wars Starships Gallery</h1>
+
+    <div class="app-layout">
+      <div class="starships-container">
+        <div class="search-container">
+          <input type="text" id="searchInput" placeholder="Search starships..." />
+        </div>
+
+        <div class="loading-indicator" id="loadingIndicator">Loading starships...</div>
+
+        <div class="error-indicator" id="errorIndicator" style="display: none;">
+          <h3>⚠️ Something went wrong</h3>
+          <p>Failed to load starships. Please try again.</p>
+        </div>
+
+        <div class="starships-grid" id="starshipsGrid"></div>
+
+        <div class="no-results" id="noResultsIndicator" style="display: none;">
+          <h3>🔍 No starships found</h3>
+          <p>Try adjusting your search terms.</p>
+        </div>
+      </div>
+
+      <div class="favorites-container">
+        <div class="card">
+          <h2>Add Starship</h2>
+          <div class="add-starship-container">
+            <input type="text" id="addStarshipInput" placeholder="Add new starship to favorites..." />
+            <button id="addStarshipBtn">Add</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2>Favorites</h2>
+          <div class="favorites-counter">
+            <span>Total favorites: </span>
+            <span class="favorites-count" id="favoritesCount">0</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
+
+
+
+
+
+
+
+let allStarships = [];
+let favorites = [];
+
+const searchInput = document.getElementById('searchInput');
+const starshipsGrid = document.getElementById('starshipsGrid');
+const loadingIndicator = document.getElementById('loadingIndicator');
+const errorIndicator = document.getElementById('errorIndicator');
+const noResultsIndicator = document.getElementById('noResultsIndicator');
+const favoritesCount = document.getElementById('favoritesCount');
+const addStarshipInput = document.getElementById('addStarshipInput');
+const addStarshipBtn = document.getElementById('addStarshipBtn');
+
+document.addEventListener('DOMContentLoaded', function() {
+  loadFavorites();
+  setupEventListeners();
+  fetchStarships();
+});
+
+function setupEventListeners() {
+  if (searchInput) {
+    searchInput.addEventListener('input', handleSearch);
+  }
+
+  if (addStarshipBtn) {
+    addStarshipBtn.addEventListener('click', addNewStarship);
+  }
+
+  if (addStarshipInput) {
+    addStarshipInput.addEventListener('keypress', function(e) {
+      if (e.key === 'Enter') addNewStarship();
+    });
+  }
+}
+
+function loadFavorites() {
+  favorites = JSON.parse(localStorage.getItem('swapi_starship_favorites')) || [];
+  loadCustomStarships();
+  updateFavoritesCounter();
+}
+
+function loadCustomStarships() {
+  const customStarships = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (key && key.startsWith('starship_custom_')) {
+      const id = key.replace('starship_', '');
+      const name = localStorage.getItem(key);
+      if (name) {
+        customStarships.push({ uid: id, name, url: null });
+      }
+    }
+  }
+  allStarships = [...allStarships, ...customStarships];
+}
+
+function saveFavorites() {
+  localStorage.setItem('swapi_starship_favorites', JSON.stringify(favorites));
+}
+
+async function fetchStarships() {
+  try {
+    showLoading();
+    hideError();
+
+    const response = await fetch(`https://www.swapi.tech/api/starships/`);
+    if (!response.ok) throw new Error('Failed to fetch starships');
+
+    const data = await response.json();
+    allStarships = data.results;
+
+    loadCustomStarships();
+
+    hideLoading();
+    displayStarships(allStarships);
+  } catch (error) {
+    hideLoading();
+    showError();
+    console.error('Error fetching starships:', error);
+  }
+}
+
+function displayStarships(starships) {
+  if (starshipsGrid) {
+    starshipsGrid.innerHTML = '';
+    hideNoResults();
+
+    if (starships.length === 0) {
+      showNoResults();
+      return;
+    }
+
+    starships.forEach(starship => {
+      const cardElement = createStarshipCard(starship);
+      starshipsGrid.appendChild(cardElement);
+    });
+  }
+}
+
+function createStarshipCard(starship) {
+  const card = document.createElement('div');
+  card.className = `starship-card ${isFavorite(starship.uid) ? 'favorite' : ''}`;
+  card.innerHTML = `
+    <span class="starship-name">${starship.name}</span>
+    <button class="favorite-btn ${isFavorite(starship.uid) ? 'active' : ''}"
+            onclick="toggleFavorite('${starship.uid}', '${starship.name}')">
+      <span class="favorite-icon">${isFavorite(starship.uid) ? '❤️' : '🤍'}</span>
+    </button>
+  `;
+  return card;
+}
+
+function handleSearch() {
+  const searchTerm = searchInput.value.toLowerCase().trim();
+  const filtered = allStarships.filter(st =>
+    st.name.toLowerCase().includes(searchTerm)
+  );
+  displayStarships(filtered);
+}
+
+function toggleFavorite(id, name) {
+  const index = favorites.indexOf(id);
+  if (index > -1) {
+    favorites.splice(index, 1);
+  } else {
+    favorites.push(id);
+  }
+  saveFavorites();
+  updateFavoritesCounter();
+  handleSearch();
+}
+
+function isFavorite(id) {
+  return favorites.includes(id);
+}
+
+function updateFavoritesCounter() {
+  if (favoritesCount) favoritesCount.textContent = favorites.length;
+}
+
+function addNewStarship() {
+  const name = addStarshipInput.value.trim();
+  if (!name) return;
+
+  const id = 'custom_' + Date.now();
+  const newStarship = { uid: id, name, url: null };
+
+  allStarships.push(newStarship);
+  localStorage.setItem(`starship_${id}`, name);
+  addStarshipInput.value = '';
+
+  handleSearch();
+}
+
+function showLoading() {
+  loadingIndicator.style.display = 'block';
+  starshipsGrid.style.display = 'none';
+  errorIndicator.style.display = 'none';
+  noResultsIndicator.style.display = 'none';
+}
+
+function hideLoading() {
+  loadingIndicator.style.display = 'none';
+  starshipsGrid.style.display = 'grid';
+}
+
+function showError() {
+  errorIndicator.style.display = 'block';
+  starshipsGrid.style.display = 'none';
+}
+
+function hideError() {
+  errorIndicator.style.display = 'none';
+}
+
+function showNoResults() {
+  noResultsIndicator.style.display = 'block';
+  starshipsGrid.style.display = 'none';
+}
+
+function hideNoResults() {
+  noResultsIndicator.style.display = 'none';
+  starshipsGrid.style.display = 'grid';
+}
+
+
+
+
+
+
+
+
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap");
+
+:root {
+  --background: #09090b;
+  --foreground: #f8fafc;
+  --card: #1c1c1f;
+  --card-foreground: #f8fafc;
+  --primary: #336699;
+  --primary-foreground: #ffffff;
+  --muted: #1c1c1f;
+  --muted-foreground: #94a3b8;
+  --border: #27272a;
+  --radius: 0.5rem;
+  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
+  --shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.3), 0 1px 2px 0 rgba(0, 0, 0, 0.2);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.3),
+    0 4px 6px -2px rgba(0, 0, 0, 0.2);
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: var(--font-sans);
+  background-color: var(--background);
+  color: var(--foreground);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.container {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 2rem 1.5rem;
+}
+
+h1 {
+  font-size: 1.75rem;
+  font-weight: 700;
+  margin-bottom: 2rem;
+  text-align: center;
+  letter-spacing: -0.025em;
+  background: linear-gradient(to right, var(--primary), #4d88b8);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.app-layout {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 1.75rem;
+}
+
+@media (max-width: 768px) {
+  .app-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+.starships-container {
+  display: flex;
+  flex-direction: column;
+}
+
+.search-container {
+  margin-bottom: 1rem;
+}
+
+#searchInput {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  font-family: inherit;
+  font-size: 0.875rem;
+  outline: none;
+  transition: all 0.2s;
+  background-color: var(--muted);
+  color: var(--foreground);
+  margin-bottom: 0.75rem;
+}
+
+#searchInput:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px rgba(51, 102, 153, 0.2);
+  background-color: rgba(255, 255, 255, 0.03);
+}
+
+.starships-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.starship-card {
+  background-color: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  transition: all 0.2s;
+  box-shadow: var(--shadow);
+}
+
+.starship-card:hover {
+  background-color: rgba(51, 102, 153, 0.1);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-lg);
+}
+
+.starship-card.favorite {
+  background-color: rgba(51, 102, 153, 0.15);
+  border-color: var(--primary);
+}
+
+.starship-name {
+  font-weight: 500;
+  color: var(--foreground);
+  font-size: 0.875rem;
+}
+
+.favorite-btn {
+  background: none;
+  border: none;
+  font-size: 1.2rem;
+  cursor: pointer;
+  padding: 0.25rem;
+  border-radius: 50%;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.favorite-btn:hover {
+  background-color: rgba(51, 102, 153, 0.2);
+  transform: scale(1.1);
+}
+
+.favorite-btn.active .favorite-icon {
+  color: #ef4444;
+}
+
+.favorites-counter {
+  background-color: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.5rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--muted-foreground);
+}
+
+.favorites-count {
+  color: var(--primary);
+  font-weight: 600;
+}
+
+.loading-indicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  color: var(--primary);
+  font-size: 0.875rem;
+  font-weight: 500;
+  letter-spacing: 0.025em;
+  animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 0.6;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.error-indicator {
+  text-align: center;
+  padding: 2rem;
+  color: var(--muted-foreground);
+}
+
+.error-indicator h3 {
+  color: #ef4444;
+  margin-bottom: 0.5rem;
+}
+
+.no-results {
+  text-align: center;
+  padding: 2rem;
+  color: var(--muted-foreground);
+}
+
+.no-results h3 {
+  margin-bottom: 0.5rem;
+  color: var(--foreground);
+}
+
+.card {
+  background-color: var(--card);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+  padding: 1.25rem;
+  border: 1px solid var(--border);
+  margin-bottom: 1rem;
+}
+
+.card:last-child {
+  margin-bottom: 0;
+}
+
+h2 {
+  font-size: 1.125rem;
+  font-weight: 600;
+  margin-bottom: 1.25rem;
+  color: var(--foreground);
+  letter-spacing: -0.025em;
+}
+
+.add-starship-container {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+#addStarshipInput {
+  flex: 1;
+  padding: 0.75rem 1rem;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  font-family: inherit;
+  font-size: 0.875rem;
+  outline: none;
+  transition: all 0.2s;
+  background-color: var(--muted);
+  color: var(--foreground);
+}
+
+#addStarshipInput:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px rgba(51, 102, 153, 0.2);
+  background-color: rgba(255, 255, 255, 0.03);
+}
+
+#addStarshipBtn {
+  background-color: var(--primary);
+  color: var(--primary-foreground);
+  border: none;
+  padding: 0.75rem 1.25rem;
+  border-radius: var(--radius);
+  cursor: pointer;
+  font-size: 0.875rem;
+  font-weight: 500;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+#addStarshipBtn:hover {
+  background-color: #4477aa;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(51, 102, 153, 0.3);
+}
+
+#addStarshipBtn:active {
+  transform: translateY(0);
+}
+
+@media (max-width: 480px) {
+  .add-starship-container {
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  #addStarshipBtn {
+    width: 100%;
+  }
+}
+
+
+
